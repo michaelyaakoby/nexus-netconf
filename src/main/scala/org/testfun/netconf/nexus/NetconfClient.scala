@@ -9,5 +9,6 @@ trait NetconfClient {
 
 object Messages {
   case class NetconfCredentials(ip: String, username: String, password: String)
-  case class Vlan(id: Int, name: String, state: String, ports: String)
+
+  case class Vlan(id: Int, name: String, state: String, ports: Seq[String] = Seq())
 }

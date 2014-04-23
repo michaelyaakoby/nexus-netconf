@@ -11,7 +11,7 @@ class NetconfClietImpl(implicit ec: ExecutionContext) extends NetconfClient {
 
   override def vlans(credentials: NetconfCredentials): Future[Seq[Vlan]] = {
     Future{
-      val netConfSshClient = new NetConfSshClient(credentials)
+      val netConfSshClient = new NetconfSshClient(credentials)
       try {
         netConfSshClient.open()
         netConfSshClient.vlans()
@@ -22,7 +22,28 @@ class NetconfClietImpl(implicit ec: ExecutionContext) extends NetconfClient {
   }
 }
 
-class NetConfSshClient(credentials: NetconfCredentials) {
+trait XmlResponseParser {
+  def extractPortsFromRange(s: String) = {
+    val rangeMatcher = "(.*?)([0-9]+)-([0-9]+)".r
+
+    s match {
+      case rangeMatcher(prefix, fromPort, toPort) => for (i <- fromPort.toInt to toPort.toInt) yield prefix + i
+      case x => Seq(x)
+    }
+  }
+
+  def toVlans(xmlDoc: Elem): Seq[Vlan] = {
+    val vlanXml = xmlDoc \\ "ROW_vlanbrief"
+    vlanXml.map(n => Vlan(
+      (n \ "vlanshowbr-vlanid").text.toInt,
+      (n \ "vlanshowbr-vlanname").text,
+      (n \ "vlanshowbr-vlanstate").text,
+      (n \ "vlanshowplist-ifidx").map(_.text.split(',')).flatten.filter(!_.startsWith("port-channel")).map(extractPortsFromRange).flatten
+    ))
+  }
+}
+
+class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParser {
 
   val connection = connect(credentials)
   val session = connection.openSession()
@@ -63,13 +84,7 @@ class NetConfSshClient(credentials: NetconfCredentials) {
       </nc:rpc>
     )
 
-    val vlanXml = receiveXml() \\ "ROW_vlanbrief"
-    vlanXml.map(n => Vlan(
-      (n \ "vlanshowbr-vlanid").text.toInt,
-      (n \ "vlanshowbr-vlanname").text,
-      (n \ "vlanshowbr-vlanstate").text,
-      (n \ "vlanshowplist-ifidx").map(_.text).mkString(",")
-    ))
+    toVlans(receiveXml())
   }
 
   def connect(credentials: NetconfCredentials) = {
