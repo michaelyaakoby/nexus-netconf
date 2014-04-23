@@ -9,7 +9,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class NetconfClietImpl(implicit ec: ExecutionContext) extends NetconfClient {
 
-  override def vlans(credentials: NetConfCredentials): Future[Seq[Vlan]] = {
+  override def vlans(credentials: NetconfCredentials): Future[Seq[Vlan]] = {
     Future{
       val netConfSshClient = new NetConfSshClient(credentials)
       try {
@@ -22,7 +22,7 @@ class NetconfClietImpl(implicit ec: ExecutionContext) extends NetconfClient {
   }
 }
 
-class NetConfSshClient(credentials: NetConfCredentials) {
+class NetConfSshClient(credentials: NetconfCredentials) {
 
   val connection = connect(credentials)
   val session = connection.openSession()
@@ -72,7 +72,7 @@ class NetConfSshClient(credentials: NetConfCredentials) {
     ))
   }
 
-  def connect(credentials: NetConfCredentials) = {
+  def connect(credentials: NetconfCredentials) = {
     import credentials._
     val connection = new Connection(ip)
     connection.connect
@@ -96,10 +96,13 @@ class NetConfSshClient(credentials: NetConfCredentials) {
   }
   
   def receiveXml() = {
-    XML.loadString(responseScanner.next())
+    val x = responseScanner.next()
+    println(x)
+    XML.loadString(x)
   }
   
   def sendXml(message: Elem) {
+    println(message.toString() + "]]>]]>")
     xmlRequestWriter.println(message.toString() + "]]>]]>")
     xmlRequestWriter.flush()
   }
