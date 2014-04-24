@@ -10,7 +10,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class NetconfClietImpl(implicit ec: ExecutionContext) extends NetconfClient {
 
   override def vlans(credentials: NetconfCredentials): Future[Seq[Vlan]] = {
-    Future{
+    Future {
       val netConfSshClient = new NetconfSshClient(credentials)
       try {
         netConfSshClient.open()
@@ -18,6 +18,13 @@ class NetconfClietImpl(implicit ec: ExecutionContext) extends NetconfClient {
       } finally {
         netConfSshClient.close()
       }
+    }
+  }
+
+  override def editConfig(credentials: NetconfCredentials, commands: Seq[String]) = {
+    Future {
+      val netConfSshClient = new NetconfSshClient(credentials)
+      netConfSshClient.editConfig(Seq())
     }
   }
 }
@@ -39,6 +46,16 @@ trait XmlResponseParser {
       (n \ "vlanshowbr-vlanname").text,
       (n \ "vlanshowbr-vlanstate").text,
       (n \ "vlanshowplist-ifidx").map(_.text.split(',')).flatten.filter(!_.startsWith("port-channel")).map(extractPortsFromRange).flatten
+    ))
+  }
+
+  def toInterfaces(xmlDoc: Elem): Seq[Interface] = {
+    val interfaceXml = (xmlDoc \\ "ROW_interface").filter(x => (x \ "eth_ip_addr").text.nonEmpty && (x \ "svi_admin_state").text.nonEmpty && (x \ "interface").text.toLowerCase.startsWith("vlan"))
+    interfaceXml.map(n => Interface(
+      (n \ "interface").text,
+      (n \ "svi_admin_state").text,
+      (n \ "eth_ip_addr").text,
+      (n \ "eth_ip_mask").text.toInt
     ))
   }
 }
@@ -85,6 +102,49 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
     )
 
     toVlans(receiveXml())
+  }
+
+
+  def editConfig(commands: Seq[String]) = {
+    sendXml(
+    <rpc message-id="101" xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+      <edit-config>
+        <target>
+          <running/>
+        </target>
+        <config>
+          <cli-config-data>
+            {commands.map(x => {<cmd>{x}</cmd>})}
+          </cli-config-data>
+        </config>
+      </edit-config>
+    </rpc>
+  )
+  }
+
+  def configInterface(name: String, address: String, netmaskBits: Int) = {
+    val commands = Seq(
+        s"interface $name",
+        s"ip address $address $netmaskBits"
+    )
+    editConfig(commands)
+  }
+
+
+  def interfaces() = {
+    sendXml(
+      <nc:rpc message-id="1" xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns="http://www.cisco.com/nxos:1.0:nfcli">
+        <nc:get>
+          <nc:filter type="subtree">
+            <show>
+              <interface/>
+            </show>
+          </nc:filter>
+        </nc:get>
+      </nc:rpc>
+    )
+
+    toInterfaces(receiveXml())
   }
 
   def connect(credentials: NetconfCredentials) = {
