@@ -107,29 +107,51 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
 
   def editConfig(commands: Seq[String]) = {
     sendXml(
-    <rpc message-id="101" xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
-      <edit-config>
-        <target>
-          <running/>
-        </target>
-        <config>
-          <cli-config-data>
-            {commands.map(x => {<cmd>{x}</cmd>})}
-          </cli-config-data>
-        </config>
-      </edit-config>
-    </rpc>
-  )
+      <nc:rpc xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0" xmlns:nxos="http://www.cisco.com/nxos:1.0" message-id="1">
+        <nxos:exec-command>
+          {commands.map(x => {<nxos:cmd>{x}</nxos:cmd>})}
+        </nxos:exec-command>
+      </nc:rpc>
+    )
+    handleErrors()
   }
 
   def configInterface(name: String, address: String, netmaskBits: Int) = {
     val commands = Seq(
-        s"interface $name",
+        s"config; interface $name",
         s"ip address $address $netmaskBits"
     )
     editConfig(commands)
   }
 
+
+  def createVlan(id: Int, name: String) = {
+    val commands = Seq(
+      s"config; interface ; feature interface-vlan",
+      s"vlan $id",
+      s"name $name"
+    )
+  }
+
+  def configBgp(customerAsnId: Int = 64514, amazonAsnId: String = 7224, amazonBgpIp: String, svmCidr: String, bgpKey: String ) = {
+    val commands = Seq(
+      s"config; router bgp $customerAsnId",
+      s"address-family ipv4 unicast",
+      s"network $svmCidr",
+      s"neighbor $amazonBgpIp remote-as $amazonAsnId",
+      s"password 0 $bgpKey",
+      s"address-family ipv4 unicast"
+    )
+    editConfig(commands)
+  }
+
+  def deleteInterface(name: String) = {
+    val commands = Seq(
+      s"config t",
+      s"no interface $name"
+    )
+    editConfig(commands)
+  }
 
   def interfaces() = {
     sendXml(
@@ -159,6 +181,14 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
   
   def receiveHello() = (receiveXml() \\ "session-id").text.toInt
   def receiveOk() = !(receiveXml() \\ "ok").isEmpty
+  def handleErrors() = {
+    val response = receiveXml()
+    if((response \\ "ok").isEmpty){
+      throw new  RuntimeException((response \ "rpc-error" \ "error-message").text)
+    }
+  }
+
+
 
   def sendHello() {
     sendXml(
@@ -169,6 +199,7 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
       </nc:hello>
     )
   }
+
   
   def receiveXml() = {
     val x = responseScanner.next()
