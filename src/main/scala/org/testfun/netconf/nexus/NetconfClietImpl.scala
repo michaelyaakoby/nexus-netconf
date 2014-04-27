@@ -21,10 +21,64 @@ class NetconfClietImpl(implicit ec: ExecutionContext) extends NetconfClient {
     }
   }
 
-  override def editConfig(credentials: NetconfCredentials, commands: Seq[String]) = {
+  override def interfaces(credentials: NetconfCredentials): Future[Seq[Interface]] = {
     Future {
       val netConfSshClient = new NetconfSshClient(credentials)
-      netConfSshClient.editConfig(Seq())
+      try {
+        netConfSshClient.open()
+        netConfSshClient.interfaces()
+      } finally {
+        netConfSshClient.close()
+      }
+    }
+  }
+
+  override def createVlanInterface(credentials: NetconfCredentials, vlanId: Int, address: String, netmaskBits: Int) = {
+    Future {
+      val netConfSshClient = new NetconfSshClient(credentials)
+      try {
+        netConfSshClient.open()
+        netConfSshClient.createVlanInterface(vlanId, address, netmaskBits)
+      } finally {
+        netConfSshClient.close()
+      }
+    }
+  }
+
+  override def deleteVlanInterface(credentials: NetconfCredentials, vlanId: Int) = {
+    Future {
+      val netConfSshClient = new NetconfSshClient(credentials)
+      try {
+        netConfSshClient.open()
+        netConfSshClient.deleteVlanInterface(vlanId)
+      } finally {
+        netConfSshClient.close()
+      }
+    }
+  }
+
+  override def allowVlanOnAllInterfaces(credentials: NetconfCredentials, vlanId: Int) = {
+    Future {
+      val netConfSshClient = new NetconfSshClient(credentials)
+      try {
+        netConfSshClient.open()
+        netConfSshClient.allowVlanOnAllInterfaces(vlanId)
+      } finally {
+        netConfSshClient.close()
+      }
+    }
+  }
+
+
+  override def configureBgp(credentials: NetconfCredentials, amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int = 64514, amazonAsnId: Int = 7224) = {
+    Future {
+      val netConfSshClient = new NetconfSshClient(credentials)
+      try {
+        netConfSshClient.open()
+        netConfSshClient.configureBgp(customerAsnId, amazonAsnId, amazonBgpIp, svmCidr, bgpKey)
+      } finally {
+        netConfSshClient.close()
+      }
     }
   }
 }
@@ -104,6 +158,14 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
     toVlans(receiveXml())
   }
 
+  def allowVlanOnAllInterfaces(vlanId: Int) = {
+    val commands = Seq(
+      s"conf t ; interface Eth1-32",
+      s" switchport trunk  allowed  vlan  add 10"
+    )
+    editConfig(commands)
+  }
+
 
   def editConfig(commands: Seq[String]) = {
     sendXml(
@@ -116,10 +178,10 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
     handleErrors()
   }
 
-  def configInterface(name: String, address: String, netmaskBits: Int) = {
+  def createVlanInterface(vlanId: Int, address: String, netmaskBits: Int) = {
     val commands = Seq(
-        s"config; interface $name",
-        s"ip address $address $netmaskBits"
+        s"conf t ; interface Vlan$vlanId",
+        s"ip address $address/$netmaskBits"
     )
     editConfig(commands)
   }
@@ -127,15 +189,17 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
 
   def createVlan(id: Int, name: String) = {
     val commands = Seq(
-      s"config; interface ; feature interface-vlan",
+      s"config interface ; feature interface-vlan",
       s"vlan $id",
       s"name $name"
     )
+
+    editConfig(commands)
   }
 
-  def configBgp(customerAsnId: Int = 64514, amazonAsnId: String = 7224, amazonBgpIp: String, svmCidr: String, bgpKey: String ) = {
+  def configureBgp(customerAsnId: Int = 64514, amazonAsnId: Int = 7224, amazonBgpIp: String, svmCidr: String, bgpKey: String) = {
     val commands = Seq(
-      s"config; router bgp $customerAsnId",
+      s"conf t ; router bgp $customerAsnId",
       s"address-family ipv4 unicast",
       s"network $svmCidr",
       s"neighbor $amazonBgpIp remote-as $amazonAsnId",
@@ -145,10 +209,12 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
     editConfig(commands)
   }
 
-  def deleteInterface(name: String) = {
+
+
+  def deleteVlanInterface(vlanId: Int) = {
     val commands = Seq(
       s"config t",
-      s"no interface $name"
+      s"no interface Vlan$vlanId"
     )
     editConfig(commands)
   }
@@ -184,7 +250,7 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
   def handleErrors() = {
     val response = receiveXml()
     if((response \\ "ok").isEmpty){
-      throw new  RuntimeException((response \ "rpc-error" \ "error-message").text)
+      throw new  NxosConfigException((response \ "rpc-error" \ "error-message").text)
     }
   }
 
