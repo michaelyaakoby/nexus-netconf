@@ -4,12 +4,14 @@ import Messages._
 import scala.concurrent.Future
 
 trait NetconfClient {
-  def vlans(credentials: NetconfCredentials): Future[Seq[Vlan]]
-  def interfaces(credentials: NetconfCredentials): Future[Seq[Interface]]
-  def createVlanInterface(credentials: NetconfCredentials, vlanId: Int, address: String, netmaskBits: Int) : Future[Unit]
-  def configureBgp(credentials: NetconfCredentials, amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int = 64514, amazonAsnId: Int = 7224) : Future[Unit]
-  def deleteVlanInterface(credentials: NetconfCredentials, vlanId: Int) : Future[Unit]
-  def allowVlanOnAllInterfaces(credentials: NetconfCredentials, vlanId: Int) : Future[Unit]
+  val credentials: NetconfCredentials
+  def vlans(): Future[Seq[Vlan]]
+  def interfaces(): Future[Seq[Interface]]
+  def createVlanInterface(vlanId: Int, address: String, netmaskBits: Int) : Future[Unit]
+  def configureBgp(amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int = 64514, amazonAsnId: Int = 7224) : Future[Unit]
+  def deleteVlanInterface(vlanId: Int) : Future[Unit]
+  def allowVlanOnAllInterfaces(vlanId: Int) : Future[Unit]
+  def removeBgpNeighbor(amazonBgpIp: String, customerAsnId: Int = 64514)
 }
 
 object Messages {
