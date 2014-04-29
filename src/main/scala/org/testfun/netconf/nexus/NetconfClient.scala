@@ -7,7 +7,7 @@ trait NetconfClient {
   val credentials: NetconfCredentials
   def vlans(): Future[Seq[Vlan]]
   def interfaces(): Future[Seq[Interface]]
-  def createVlanInterface(vlanId: Int, address: String, netmaskBits: Int) : Future[Unit]
+  def createVlanInterface(vrfName: String, vlanId: Int, address: String, netmaskBits: Int) : Future[Unit]
   def configureBgp(amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int = 64514, amazonAsnId: Int = 7224) : Future[Unit]
   def deleteVlanInterface(vlanId: Int) : Future[Unit]
   def allowVlanOnAllInterfaces(vlanId: Int) : Future[Unit]

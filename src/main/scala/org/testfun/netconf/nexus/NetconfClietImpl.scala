@@ -23,9 +23,9 @@ class NetconfClietImpl(nxCredentials: NetconfCredentials)(implicit ec: Execution
     }
   }
 
-  override def createVlanInterface(vlanId: Int, address: String, netmaskBits: Int) = {
+  override def createVlanInterface(vrfName: String, vlanId: Int, address: String, netmaskBits: Int) = {
     executeNxAction(new NetconfSshClient(credentials)) {
-      netConfSshClient => netConfSshClient.createVlanInterface(vlanId, address, netmaskBits)
+      netConfSshClient => netConfSshClient.createVlanInterface(vrfName, vlanId, address, netmaskBits)
     }
   }
 
@@ -57,6 +57,12 @@ class NetconfClietImpl(nxCredentials: NetconfCredentials)(implicit ec: Execution
     }
   }
 
+  def createVrf(name: String) = {
+    executeNxAction(new NetconfSshClient(credentials)) {
+      netConfSshClient => netConfSshClient.createVrf(name)
+    }
+  }
+
   def executeNxAction[T <: {def close();def open()}, X](netConfSshClient: T)(nxFunction: T => X) = {
     Future {
       try {
@@ -67,6 +73,8 @@ class NetconfClietImpl(nxCredentials: NetconfCredentials)(implicit ec: Execution
       }
     }
   }
+
+
 
 }
 
@@ -165,9 +173,10 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
     receive()
   }
 
-  def createVlanInterface(vlanId: Int, address: String, netmaskBits: Int) = {
+  def createVlanInterface(vrfName: String, vlanId: Int, address: String, netmaskBits: Int) = {
     val commands = Seq(
         s"conf t ; interface Vlan$vlanId",
+        s"no shutdown ; vrf member $vrfName",
         s"ip address $address/$netmaskBits"
     )
     editConfig(commands)
@@ -200,6 +209,13 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
     val commands = Seq(
       s"conf t ; router bgp $customerAsnId",
       s"no neighbor $amazonBgpIp"
+    )
+    editConfig(commands)
+  }
+
+  def createVrf(name: String) = {
+    val commands = Seq(
+      s"conf t ; vrf context $name"
     )
     editConfig(commands)
   }
