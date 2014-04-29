@@ -8,10 +8,12 @@ trait NetconfClient {
   def vlans(): Future[Seq[Vlan]]
   def interfaces(): Future[Seq[Interface]]
   def createVlanInterface(vrfName: String, vlanId: Int, address: String, netmaskBits: Int) : Future[Unit]
-  def configureBgp(amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int = 64514, amazonAsnId: Int = 7224) : Future[Unit]
+  def configureBgp(vrfName:String, amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int = 64514, amazonAsnId: Int = 7224) : Future[Unit]
   def deleteVlanInterface(vlanId: Int) : Future[Unit]
+  def createVlan(id: Int, name: String) : Future[Unit]
   def allowVlanOnAllInterfaces(vlanId: Int) : Future[Unit]
-  def removeBgpNeighbor(amazonBgpIp: String, customerAsnId: Int = 64514)
+  def removeBgpNeighbor(amazonBgpIp: String, customerAsnId: Int = 64514): Future[Unit]
+  def createVrf(name: String): Future[Unit]
 }
 
 object Messages {

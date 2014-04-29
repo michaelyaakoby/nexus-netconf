@@ -21,11 +21,13 @@ class NetconfClietImpl(nxCredentials: NetconfCredentials)(implicit ec: Execution
 
   override def allowVlanOnAllInterfaces(vlanId: Int) = executeNxAction(_.allowVlanOnAllInterfaces(vlanId))
 
-  override def configureBgp(amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int = 64514, amazonAsnId: Int = 7224) = executeNxAction(_.configureBgp(amazonBgpIp, svmCidr, bgpKey, customerAsnId, amazonAsnId))
+  override def configureBgp(vrfName: String, amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int = 64514, amazonAsnId: Int = 7224) = executeNxAction(_.configureBgp(vrfName, amazonBgpIp, svmCidr, bgpKey, customerAsnId, amazonAsnId))
 
   override def removeBgpNeighbor(amazonBgpIp: String, customerAsnId: Int = 64514) = executeNxAction(_.removeBgpNeighbor(amazonBgpIp, customerAsnId))
 
-  def createVrf(name: String) = executeNxAction(_.createVrf(name))
+  override def createVlan(id: Int, name: String) = executeNxAction(_.createVlan(id, name))
+
+  override def createVrf(name: String) = executeNxAction(_.createVrf(name))
 
   def executeNxAction[X](nxFunction: NetconfSshClient => X) = {
     val netConfSshClient = new NetconfSshClient(credentials)
@@ -117,8 +119,8 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
 
   def allowVlanOnAllInterfaces(vlanId: Int) = {
     val commands = Seq(
-      s"conf t ; interface Eth1-32",
-      s" switchport trunk  allowed  vlan  add 10"
+      s"conf t ; interface Eth1/1-32",
+      s" switchport trunk  allowed  vlan  add $vlanId"
     )
     editConfig(commands)
   }
@@ -147,7 +149,7 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
 
   def createVlan(id: Int, name: String) = {
     val commands = Seq(
-      s"config interface ; feature interface-vlan",
+      s"conf t ; feature interface-vlan",
       s"vlan $id",
       s"name $name"
     )
@@ -155,9 +157,9 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
     editConfig(commands)
   }
 
-  def configureBgp(amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int, amazonAsnId: Int) = {
+  def configureBgp(vrfName: String,amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int, amazonAsnId: Int) = {
     val commands = Seq(
-      s"conf t ; router bgp $customerAsnId",
+      s"conf t ; router bgp $customerAsnId ;  vrf $vrfName",
       s"address-family ipv4 unicast",
       s"network $svmCidr",
       s"neighbor $amazonBgpIp remote-as $amazonAsnId",
@@ -236,6 +238,7 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
 
   def receiveXml() = {
     val x = responseScanner.next()
+
     XML.loadString(x)
   }
   
