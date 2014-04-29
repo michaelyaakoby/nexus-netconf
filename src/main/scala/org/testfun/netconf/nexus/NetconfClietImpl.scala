@@ -4,66 +4,31 @@ import Messages._
 import scala.xml._
 import ch.ethz.ssh2.Connection
 import java.util.Scanner
-import java.io.{FileOutputStream, PrintWriter}
+import java.io.PrintWriter
 import scala.concurrent.{ExecutionContext, Future}
 
 class NetconfClietImpl(nxCredentials: NetconfCredentials)(implicit ec: ExecutionContext) extends NetconfClient {
 
   override val credentials: NetconfCredentials = nxCredentials 
 
-  override def vlans(): Future[Seq[Vlan]] = {
-    executeNxAction(new NetconfSshClient(credentials)) {
-      netConfSshClient => netConfSshClient.vlans()
-    }
-  }
+  override def vlans(): Future[Seq[Vlan]] = executeNxAction(_.vlans())
 
-  override def interfaces(): Future[Seq[Interface]] = {
-    executeNxAction(new NetconfSshClient(credentials)) {
-      netConfSshClient => netConfSshClient.interfaces()
-    }
-  }
+  override def interfaces(): Future[Seq[Interface]] = executeNxAction(_.interfaces())
 
-  override def createVlanInterface(vrfName: String, vlanId: Int, address: String, netmaskBits: Int) = {
-    executeNxAction(new NetconfSshClient(credentials)) {
-      netConfSshClient => netConfSshClient.createVlanInterface(vrfName, vlanId, address, netmaskBits)
-    }
-  }
+  override def createVlanInterface(vrfName: String, vlanId: Int, address: String, netmaskBits: Int) = executeNxAction(_.createVlanInterface(vrfName, vlanId, address, netmaskBits))
 
-  override def deleteVlanInterface(vlanId: Int) = {
-    executeNxAction(new NetconfSshClient(credentials)) {
-      netConfSshClient => netConfSshClient.deleteVlanInterface(vlanId)
-    }
+  override def deleteVlanInterface(vlanId: Int) = executeNxAction(_.deleteVlanInterface(vlanId))
 
+  override def allowVlanOnAllInterfaces(vlanId: Int) = executeNxAction(_.allowVlanOnAllInterfaces(vlanId))
 
-  }
+  override def configureBgp(amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int = 64514, amazonAsnId: Int = 7224) = executeNxAction(_.configureBgp(amazonBgpIp, svmCidr, bgpKey, customerAsnId, amazonAsnId))
 
-  override def allowVlanOnAllInterfaces(vlanId: Int) = {
-    executeNxAction(new NetconfSshClient(credentials)) {
-      netConfSshClient => netConfSshClient.allowVlanOnAllInterfaces(vlanId)
-    }
-  }
+  override def removeBgpNeighbor(amazonBgpIp: String, customerAsnId: Int = 64514) = executeNxAction(_.removeBgpNeighbor(amazonBgpIp, customerAsnId))
 
+  def createVrf(name: String) = executeNxAction(_.createVrf(name))
 
-
-  override def configureBgp(amazonBgpIp: String, svmCidr: String, bgpKey: String, customerAsnId: Int = 64514, amazonAsnId: Int = 7224) = {
-    executeNxAction(new NetconfSshClient(credentials)) {
-      netConfSshClient => netConfSshClient.configureBgp(amazonBgpIp, svmCidr, bgpKey, customerAsnId, amazonAsnId)
-    }
-  }
-
-  override def removeBgpNeighbor(amazonBgpIp: String, customerAsnId: Int = 64514) = {
-    executeNxAction(new NetconfSshClient(credentials)) {
-      netConfSshClient => netConfSshClient.removeBgpNeighbor(amazonBgpIp, customerAsnId)
-    }
-  }
-
-  def createVrf(name: String) = {
-    executeNxAction(new NetconfSshClient(credentials)) {
-      netConfSshClient => netConfSshClient.createVrf(name)
-    }
-  }
-
-  def executeNxAction[T <: {def close();def open()}, X](netConfSshClient: T)(nxFunction: T => X) = {
+  def executeNxAction[X](nxFunction: NetconfSshClient => X) = {
+    val netConfSshClient = new NetconfSshClient(credentials)
     Future {
       try {
         netConfSshClient.open()
@@ -73,9 +38,6 @@ class NetconfClietImpl(nxCredentials: NetconfCredentials)(implicit ec: Execution
       }
     }
   }
-
-
-
 }
 
 trait XmlResponseParser {
@@ -262,8 +224,6 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
     }
   }
 
-
-
   def sendHello() {
     sendXml(
       <nc:hello xmlns:nc="urn:ietf:params:xml:ns:netconf:base:1.0">
@@ -274,15 +234,12 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
     )
   }
 
-  
   def receiveXml() = {
     val x = responseScanner.next()
-    //println(x)
     XML.loadString(x)
   }
   
   def sendXml(message: Elem) {
-    //println(message.toString() + "]]>]]>")
     xmlRequestWriter.println(message.toString() + "]]>]]>")
     xmlRequestWriter.flush()
   }
