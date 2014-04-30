@@ -6,23 +6,25 @@ object IpAddressUtils {
 
   def intToIp(ip: Int) = s"${ip>>24&0xFF}.${ip>>16&0xFF}.${ip>>8&0xFF}.${ip&0xFF}"
 
-  def ipAddressBlockStream(firstIp: Int, blockSize: Int): Stream[Int] = {
-    def nextIntIpAddress(ip: Int) = {
-      val lastByte = ip & 0xFF
-      if (lastByte + blockSize >= 255) (ip & 0xFFFFFF00) + 257 else ip + blockSize
-    }
+  def ipInCidr(cidr: String, offset: Int) = {
+    val cidrBlock = cidrToIpBlock(cidr)
+    val ip = cidrBlock._1 + offset
 
-    firstIp #:: ipAddressBlockStream(nextIntIpAddress(firstIp), blockSize)
+    if (!isIpInBlock(ip, cidrBlock)) throw new IllegalArgumentException(s"Offset $offset is outside of CIDR $cidr")
+
+    intToIp(ip)
   }
 
-  def ipAddressBlockStream(firstIp: String, blockSize: Int): Stream[String] = {
-    ipAddressBlockStream(ipToInt(firstIp), blockSize).map(intToIp)
-  }
+  def nextAvailableCidrBlock(cidr: String, usedIpAddresses: Seq[String]) = {
+    val (baseAddress, mask) = cidrToIpBlock(cidr)
+    val cidrSize = -mask
+    def cidrStream(baseAddress: Int): Stream[Int] = baseAddress #:: cidrStream(baseAddress + cidrSize)
 
-  def nextAvailableIpAddressBlock(firstIp: String, blockSize: Int, usedIpAddresses: Seq[String]) = {
     val usedIntIpAddresses = usedIpAddresses.map(ipToInt)
-    def unusedBlock(firstIp: Int) = usedIntIpAddresses.forall(ip => ip < firstIp || ip >= firstIp + blockSize)
-    intToIp(ipAddressBlockStream(ipToInt(firstIp), blockSize).filter(unusedBlock).head)
+    def unusedBlock(baseAddress: Int) = usedIntIpAddresses.forall(ip => !isIpInBlock(ip, (baseAddress, mask)))
+
+    val cidrBits = cidr.split("/").apply(1)
+    intToIp(cidrStream(baseAddress).filter(unusedBlock).head) + "/" + cidrBits
   }
 
 }

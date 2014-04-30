@@ -5,26 +5,33 @@ import IpAddressUtils._
 
 class IpAddressUtilsSpec extends WordSpecLike with Matchers {
 
-  "IP address block stream" should {
-    "return 3 valid 3 address blocks" in {
-      ipAddressBlockStream("192.168.1.30", 3) take 3 mkString "," should equal("192.168.1.30,192.168.1.33,192.168.1.36")
+  "next available /29 CIDR block" should {
+
+    "return first CIDR if no IP is used and if ip beyond the first CIDR is used" in {
+      nextAvailableCidrBlock("192.168.1.0/29", Seq()) should equal("192.168.1.0/29")
+      nextAvailableCidrBlock("192.168.1.0/29", Seq("192.168.1.10")) should equal("192.168.1.0/29")
     }
 
-    "return skip *.*.n.255 and start at *.*.n+1.1" in {
-      ipAddressBlockStream("192.168.2.240", 10) take 3 mkString "," should equal("192.168.2.240,192.168.2.250,192.168.3.1")
-      ipAddressBlockStream("192.168.2.241", 10) take 3 mkString "," should equal("192.168.2.241,192.168.2.251,192.168.3.1")
-      ipAddressBlockStream("192.168.2.245", 10) take 3 mkString "," should equal("192.168.2.245,192.168.3.1,192.168.3.11")
-      ipAddressBlockStream("192.168.2.250", 10) take 3 mkString "," should equal("192.168.2.250,192.168.3.1,192.168.3.11")
-      ipAddressBlockStream("192.168.2.254", 10) take 3 mkString "," should equal("192.168.2.254,192.168.3.1,192.168.3.11")
+    "return the third CIDR which is the first unsed CIDR" in {
+      nextAvailableCidrBlock("192.168.1.0/29", Seq("192.168.1.2", "192.168.1.9")) should equal("192.168.1.16/29")
     }
-  }
 
-  "next available ip address block" should {
-    "return skip used blocks: .10-15, .16-21, .22-27" in {
-      nextAvailableIpAddressBlock("192.168.2.10", 6, Seq("192.168.2.12", "192.168.2.13", "192.168.2.16", "192.168.2.27", "192.168.2.50")) should equal("192.168.2.28")
-      nextAvailableIpAddressBlock("192.168.2.10", 8, Seq("192.168.2.12", "192.168.2.13", "192.168.2.16", "192.168.2.27", "192.168.2.50")) should equal("192.168.2.18")
+    "move from 192.168.1.* to 192.168.2.* when the first is exhausted" in {
+      nextAvailableCidrBlock("192.168.1.248/29", Seq("192.168.1.250")) should equal("192.168.2.0/29")
+      nextAvailableCidrBlock("192.168.1.248/29", Seq("192.168.1.250", "192.168.2.2")) should equal("192.168.2.8/29")
     }
   }
 
-  // nextAvailableIpAddressBlock("192.168.1.0", 8, Seq("192.168.1.2", "192.168.1.9"))
+  "get IP in CIDR" should {
+    "return an IP within the CIDR" in {
+      ipInCidr("192.168.1.8/29", 1) should equal ("192.168.1.9")
+      ipInCidr("192.168.1.8/29", 7) should equal ("192.168.1.15")
+    }
+
+    "fail if requested IP is outside of CIDR" in {
+      evaluating {
+        ipInCidr("192.168.2.8/29", 8)
+      } should produce [IllegalArgumentException]
+    }
+  }
 }
