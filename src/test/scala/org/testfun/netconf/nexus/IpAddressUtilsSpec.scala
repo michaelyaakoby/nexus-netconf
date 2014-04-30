@@ -22,7 +22,9 @@ class IpAddressUtilsSpec extends WordSpecLike with Matchers {
   "next available ip address block" should {
     "return skip used blocks: .10-15, .16-21, .22-27" in {
       nextAvailableIpAddressBlock("192.168.2.10", 6, Seq("192.168.2.12", "192.168.2.13", "192.168.2.16", "192.168.2.27", "192.168.2.50")) should equal("192.168.2.28")
+      nextAvailableIpAddressBlock("192.168.2.10", 8, Seq("192.168.2.12", "192.168.2.13", "192.168.2.16", "192.168.2.27", "192.168.2.50")) should equal("192.168.2.18")
     }
   }
 
+  // nextAvailableIpAddressBlock("192.168.1.0", 8, Seq("192.168.1.2", "192.168.1.9"))
 }

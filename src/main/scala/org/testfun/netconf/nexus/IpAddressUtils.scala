@@ -16,12 +16,6 @@ object IpAddressUtils {
   }
 
   def ipAddressBlockStream(firstIp: String, blockSize: Int): Stream[String] = {
-//    def nextIntIpAddress(ip: Int) = {
-//      val lastByte = ip & 0xFF
-//      if (lastByte + blockSize >= 255) (ip & 0xFFFFFF00) + 257 else ip + blockSize
-//    }
-//
-//    def intIpAddressBlockStream(ip: Int): Stream[Int] = ip #:: intIpAddressBlockStream(nextIntIpAddress(ip))
     ipAddressBlockStream(ipToInt(firstIp), blockSize).map(intToIp)
   }
 
