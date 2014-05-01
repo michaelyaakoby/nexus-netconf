@@ -17,6 +17,8 @@ class NetconfClietImpl(nxCredentials: NetconfCredentials)(implicit ec: Execution
 
   override def createVlanInterface(vrfName: String, vlanId: Int, address: String, netmaskBits: Int) = executeNxAction(_.createVlanInterface(vrfName, vlanId, address, netmaskBits))
 
+  override def addSecondaryIpToInterface(vrfName: String, interfaceName: String, address: String, netmaskBits: Int) = executeNxAction(_.addSecondaryIpToInterface(vrfName, interfaceName, address, netmaskBits))
+
   override def deleteVlanInterface(vlanId: Int) = executeNxAction(_.deleteVlanInterface(vlanId))
 
   override def allowVlanOnAllInterfaces(vlanId: Int) = executeNxAction(_.allowVlanOnAllInterfaces(vlanId))
@@ -173,6 +175,15 @@ class NetconfSshClient(credentials: NetconfCredentials) extends XmlResponseParse
     val commands = Seq(
       s"conf t ; router bgp $customerAsnId",
       s"no neighbor $amazonBgpIp"
+    )
+    editConfig(commands)
+  }
+
+  def addSecondaryIpToInterface(vrfName: String, interfaceName: String, address: String, netmaskBits: Int) = {
+    val commands = Seq(
+      s"conf t ; interface $interfaceName",
+      s"no shutdown ; vrf member $vrfName",
+      s"ip address $address/$netmaskBits secondary"
     )
     editConfig(commands)
   }

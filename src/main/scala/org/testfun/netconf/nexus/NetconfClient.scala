@@ -14,6 +14,7 @@ trait NetconfClient {
   def allowVlanOnAllInterfaces(vlanId: Int) : Future[Unit]
   def removeBgpNeighbor(amazonBgpIp: String, customerAsnId: Int = 64514): Future[Unit]
   def createVrf(name: String): Future[Unit]
+  def addSecondaryIpToInterface(vrfName: String, interfaceName: String, address: String, netmaskBits: Int) : Future[Unit]
 }
 
 object Messages {
